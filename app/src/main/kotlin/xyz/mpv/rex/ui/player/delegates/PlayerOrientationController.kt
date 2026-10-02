@@ -25,6 +25,11 @@ class PlayerOrientationController(
   var isOrientationRestored: Boolean = false
 
   /**
+   * Tracks whether user manually cycled/overrode orientation for the current video.
+   */
+  var isUserOverridden: Boolean = false
+
+  /**
    * Starts orientation tracking / lifecycle observation.
    */
   fun start() {
@@ -67,6 +72,12 @@ class PlayerOrientationController(
       when (orientationPref) {
         PlayerOrientation.Free -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
         PlayerOrientation.Smart, PlayerOrientation.Video -> {
+          // If the user has manually overridden orientation for this video, don't auto-reset it
+          if (isUserOverridden) {
+            Log.d(TAG, "setOrientation - User manual override active: keeping ${activity.requestedOrientation}")
+            return
+          }
+
           // For Smart mode, check if orientation was already restored from database
           val isSmartMode = orientationPref == PlayerOrientation.Smart
 

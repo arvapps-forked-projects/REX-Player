@@ -254,7 +254,9 @@ class PlayerActivity :
         Log.d(TAG, "Video dimension changed: $property, aspect: $aspect")
         pipHelper.updatePictureInPictureParams()
         val currentOrientation = playerPreferences.orientation.get()
-        if ((currentOrientation == PlayerOrientation.Video || currentOrientation == PlayerOrientation.Smart) && aspect != null) {
+        if ((currentOrientation == PlayerOrientation.Video || currentOrientation == PlayerOrientation.Smart) &&
+            aspect != null &&
+            !orientationController.isUserOverridden) {
           setOrientation()
         }
         player.applyAnime4KShaders()
@@ -283,7 +285,10 @@ class PlayerActivity :
         val currentOrientation = playerPreferences.orientation.get()
         if ((currentOrientation == PlayerOrientation.Video || currentOrientation == PlayerOrientation.Smart) && 
             outAspect != null && 
-            aspectOverride <= 0.0) {
+            aspectOverride <= 0.0 &&
+            viewModel.videoAspect.value == VideoAspect.Fit &&
+            viewModel.currentAspectRatio.value <= 0.0 &&
+            !orientationController.isUserOverridden) {
           setOrientation()
         }
       }
@@ -1926,6 +1931,9 @@ class PlayerActivity :
     // Reset external audio tracks when a new video starts
     viewModel.resetExternalAudioTracks()
 
+    // Reset manual orientation override for the new video
+    orientationController.isUserOverridden = false
+
     // Update VM and services with exact loaded duration
     val loadedDurationSec = MPVLib.getPropertyDouble("duration") ?: 0.0
     viewModel.onFileLoaded(loadedDurationSec)
@@ -2877,6 +2885,7 @@ class PlayerActivity :
     get() = requestedOrientation
     set(value) {
       requestedOrientation = value
+      orientationController.isUserOverridden = true
     }
 
   // ==================== ServiceListener ====================
