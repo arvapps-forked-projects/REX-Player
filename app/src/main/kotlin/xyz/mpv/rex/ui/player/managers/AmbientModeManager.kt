@@ -20,6 +20,8 @@ class AmbientModeManager(
   private val playerPreferences: PlayerPreferences,
   private val cacheDir: File,
   private val scope: CoroutineScope,
+  private val isEligibleForAmbient: () -> Boolean,
+  private val getScreenDimensions: () -> Pair<Int, Int>,
   private val onShowText: (Boolean) -> Unit
 ) {
   companion object {
@@ -48,8 +50,11 @@ class AmbientModeManager(
     // Save the Ambient Mode ON/OFF state permanently to preferences
     playerPreferences.isAmbientEnabled.set(_isAmbientEnabled.value)
     if (_isAmbientEnabled.value) {
-      lastAmbientScaleX = -1.0 // Force rewrite
-      updateAmbientStretch()
+      if (isEligibleForAmbient()) {
+        lastAmbientScaleX = -1.0 // Force rewrite
+        lastAmbientScaleY = -1.0
+        updateAmbientStretch()
+      }
       onShowText(true)
     } else {
       disableAmbientShader()
@@ -57,9 +62,25 @@ class AmbientModeManager(
     }
   }
 
+  /**
+   * Called when screen fit / aspect ratio changes.
+   * If the player is in Fit mode without zoom, ensures the shader is active.
+   * Otherwise, temporarily disables ambient mode to prevent distortion.
+   */
+  fun onAspectChanged() {
+    if (!_isAmbientEnabled.value) return
+    if (isEligibleForAmbient()) {
+      lastAmbientScaleX = -1.0
+      lastAmbientScaleY = -1.0
+      updateAmbientStretch()
+    } else {
+      disableAmbientShader()
+    }
+  }
+
   /** Called when the device orientation changes. Refreshes ambient shader for new dimensions. */
   fun onOrientationChanged(isPortrait: Boolean) {
-    if (_isAmbientEnabled.value) {
+    if (_isAmbientEnabled.value && isEligibleForAmbient()) {
       // Force shader refresh to adapt to new screen dimensions
       lastAmbientScaleX = -1.0
       lastAmbientScaleY = -1.0
@@ -72,14 +93,11 @@ class AmbientModeManager(
     }
   }
 
-  /** Resets ambient mode to OFF when a new video file is loaded. */
+  /** Resets ambient mode when a new video file is loaded. */
   fun resetAmbientMode() {
     if (!_isAmbientEnabled.value) return
     
-    // Ambient Mode Persistent Fix for Next/Previous files
-    // DO NOT set _isAmbientEnabled.value = false
-    // Just temporarily remove the old shader and reset the scale 
-    // so the new video starts with a clean slate before recalculating.
+    // Clean slate before recalculating for the new video
     disableAmbientShader()
     lastAmbientScaleX = -1.0
     lastAmbientScaleY = -1.0
@@ -91,7 +109,7 @@ class AmbientModeManager(
    * wipes ALL glsl-shaders including the ambient one.
    */
   fun restartAmbientIfActive() {
-    if (!_isAmbientEnabled.value) return
+    if (!_isAmbientEnabled.value || !isEligibleForAmbient()) return
     // The old ambient shader file was wiped by the glsl-shaders reset.
     // Clean up our local reference without trying to remove from MPV.
     ambientShaderFile?.delete()
@@ -110,16 +128,27 @@ class AmbientModeManager(
   fun updateAmbientStretch() {
     if (!_isAmbientEnabled.value) return
 
+    if (!isEligibleForAmbient()) {
+      disableAmbientShader()
+      return
+    }
+
     runCatching {
-      val osdW = MPVLib.getPropertyInt("osd-width") ?: 1920
-      val osdH = MPVLib.getPropertyInt("osd-height") ?: 1080
+      var osdW = MPVLib.getPropertyInt("osd-width") ?: 0
+      var osdH = MPVLib.getPropertyInt("osd-height") ?: 0
+
+      if (osdW <= 0 || osdH <= 0) {
+        val (screenW, screenH) = getScreenDimensions()
+        osdW = screenW
+        osdH = screenH
+      }
 
       // Portrait mode: ambient glow goes on top/bottom (letterbox)
       // Landscape mode: ambient glow goes on left/right (pillarbox)
       // Both are handled by the same scaleX/scaleY math below
 
-      var vidW = (MPVLib.getPropertyInt("video-params/w") ?: 1920).toDouble()
-      var vidH = (MPVLib.getPropertyInt("video-params/h") ?: 1080).toDouble()
+      var vidW = (MPVLib.getPropertyInt("video-params/w") ?: 0).toDouble()
+      var vidH = (MPVLib.getPropertyInt("video-params/h") ?: 0).toDouble()
       val par  = MPVLib.getPropertyDouble("video-params/par") ?: 1.0
       val rot  = MPVLib.getPropertyInt("video-params/rotate") ?: 0
 
@@ -141,7 +170,13 @@ class AmbientModeManager(
 
       val screenAr = osdW.toDouble() / osdH.toDouble()
       val vidAr    = vidW / vidH
-      
+
+      // If the video naturally matches the screen aspect ratio, there are no black bars to illuminate
+      if (Math.abs(screenAr - vidAr) < 0.01) {
+        disableAmbientShader()
+        return
+      }
+
       // Scale the video to fill the screen — the shader remaps it back to the
       // correct aspect ratio, so only the "overflow" area receives ambient glow.
       val scaleX = if (screenAr > vidAr) screenAr / vidAr else 1.0
@@ -186,6 +221,8 @@ class AmbientModeManager(
       file.delete()
     }
     ambientShaderFile = null
+    lastAmbientScaleX = -1.0
+    lastAmbientScaleY = -1.0
     runCatching {
       MPVLib.setPropertyDouble("video-scale-x", 1.0)
       MPVLib.setPropertyDouble("video-scale-y", 1.0)
@@ -264,8 +301,6 @@ vec4 hook() {
   // ==================== Cleanup ====================
 
   fun cleanup() {
-    ambientDebounceJob?.cancel()
-    ambientShaderFile?.delete()
-    ambientShaderFile = null
+    disableAmbientShader()
   }
 }

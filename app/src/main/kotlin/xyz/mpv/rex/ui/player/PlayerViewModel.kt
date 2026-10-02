@@ -487,6 +487,18 @@ class PlayerViewModel(
     playerPreferences = playerPreferences,
     cacheDir = host.context.cacheDir,
     scope = viewModelScope,
+    isEligibleForAmbient = {
+      _videoAspect.value == VideoAspect.Fit &&
+        _currentAspectRatio.value <= 0.0 &&
+        !_advancedZoomEnabled.value &&
+        _videoZoom.value == 0f
+    },
+    getScreenDimensions = {
+      val dm = DisplayMetrics()
+      @Suppress("DEPRECATION")
+      host.hostWindowManager.defaultDisplay.getRealMetrics(dm)
+      Pair(dm.widthPixels, dm.heightPixels)
+    },
     onShowText = { isOn ->
       val text = host.context.getString(
         if (isOn) R.string.ambient_mode_on else R.string.ambient_mode_off
@@ -1128,11 +1140,19 @@ class PlayerViewModel(
       MPVLib.setPropertyDouble("video-scale-y", prefScaleY.toDouble())
       _videoScaleX.value = prefScaleX
       _videoScaleY.value = prefScaleY
+      ambientModeManager.onAspectChanged()
     } else {
-      MPVLib.setPropertyDouble("video-scale-x", 1.0)
-      MPVLib.setPropertyDouble("video-scale-y", 1.0)
       _videoScaleX.value = 1f
       _videoScaleY.value = 1f
+      if (ambientModeManager.isAmbientEnabled.value &&
+          _videoAspect.value == VideoAspect.Fit &&
+          _currentAspectRatio.value <= 0.0 &&
+          _videoZoom.value == 0f) {
+        ambientModeManager.updateAmbientStretch()
+      } else {
+        MPVLib.setPropertyDouble("video-scale-x", 1.0)
+        MPVLib.setPropertyDouble("video-scale-y", 1.0)
+      }
     }
   }
 
@@ -1172,6 +1192,7 @@ class PlayerViewModel(
     // Update the state and persist to preferences
     _videoAspect.value = aspect
     _currentAspectRatio.value = -1.0 // Reset custom ratio when using standard modes
+    ambientModeManager.onAspectChanged()
     if (persistToPreferences && playerPreferences.rememberVideoAspect.get()) {
       playerPreferences.defaultVideoAspect.set(aspect)
       playerPreferences.defaultCustomAspectRatio.set(-1.0)
@@ -1195,6 +1216,7 @@ class PlayerViewModel(
     }
     _playbackManager.applyCustomAspectRatio(ratio)
     _currentAspectRatio.value = ratio
+    ambientModeManager.onAspectChanged()
     if (persistToPreferences && playerPreferences.rememberVideoAspect.get()) {
       playerPreferences.defaultCustomAspectRatio.set(ratio)
     }

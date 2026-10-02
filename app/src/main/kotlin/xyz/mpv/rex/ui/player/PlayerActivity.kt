@@ -284,6 +284,9 @@ class PlayerActivity :
             aspectOverride <= 0.0) {
           setOrientation()
         }
+        if (viewModel.isAmbientEnabled.value) {
+          viewModel.updateAmbientStretch()
+        }
       }
 
       override fun onPauseStateChanged(isPaused: Boolean) {
