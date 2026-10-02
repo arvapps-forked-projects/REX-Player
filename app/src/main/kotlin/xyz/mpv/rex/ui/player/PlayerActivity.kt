@@ -1084,10 +1084,8 @@ class PlayerActivity :
       surfaceViewProvider = { binding.player },
       isPlayingProvider = { isReady && !isFinishing && viewModel.paused != true },
       isEligibleProvider = {
-        viewModel.videoAspect.value == VideoAspect.Fit &&
-          viewModel.currentAspectRatio.value <= 0.0 &&
-          viewModel.videoZoom.value == 0f &&
-          !viewModel.advancedZoomEnabled.value
+        (viewModel.videoAspect.value == VideoAspect.Fit || viewModel.currentAspectRatio.value > 0.0) &&
+          viewModel.getVideoOutAspect() != null
       }
     )
 
