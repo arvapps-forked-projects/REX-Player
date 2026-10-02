@@ -29,7 +29,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import xyz.mpv.rex.ui.player.ambient.AmbientGlowOverlay
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -255,7 +258,6 @@ class PlayerActivity :
           setOrientation()
         }
         player.applyAnime4KShaders()
-        viewModel.updateAmbientStretch()
 
         if (property == "video-params/h" && value > 0) {
           val qualities = viewModel.availableVideoQualities.value
@@ -283,9 +285,6 @@ class PlayerActivity :
             outAspect != null && 
             aspectOverride <= 0.0) {
           setOrientation()
-        }
-        if (viewModel.isAmbientEnabled.value) {
-          viewModel.updateAmbientStretch()
         }
       }
 
@@ -1081,15 +1080,29 @@ class PlayerActivity :
 
   @RequiresApi(Build.VERSION_CODES.P)
   private fun setupPlayerControls() {
+    viewModel.ambientController.startCapture(
+      surfaceViewProvider = { binding.player },
+      isPlayingProvider = { isReady && !isFinishing && viewModel.paused != true },
+      isEligibleProvider = {
+        viewModel.videoAspect.value == VideoAspect.Fit &&
+          viewModel.currentAspectRatio.value <= 0.0 &&
+          viewModel.videoZoom.value == 0f &&
+          !viewModel.advancedZoomEnabled.value
+      }
+    )
+
     binding.controls.setContent {
       MpvexPlayerTheme {
-        PlayerControls(
-          viewModel = viewModel,
-          onBackPress = {
-            handleBackPress()
-          },
-          modifier = Modifier,
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+          AmbientGlowOverlay(viewModel = viewModel)
+          PlayerControls(
+            viewModel = viewModel,
+            onBackPress = {
+              handleBackPress()
+            },
+            modifier = Modifier,
+          )
+        }
       }
     }
   }

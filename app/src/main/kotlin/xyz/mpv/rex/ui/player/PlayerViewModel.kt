@@ -61,7 +61,6 @@ import xyz.mpv.rex.preferences.AdvancedPreferences
 import xyz.mpv.rex.ui.browser.miniplayer.MiniPlayerStateManager
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
-import xyz.mpv.rex.ui.player.managers.AmbientModeManager
 import xyz.mpv.rex.ui.player.managers.CustomButtonManager
 import xyz.mpv.rex.ui.player.managers.PlaybackManager
 import xyz.mpv.rex.ui.player.managers.PlayerGestureManager
@@ -482,23 +481,9 @@ class PlayerViewModel(
   private val videoFlipFilterManager = VideoFlipFilterManager()
 
   // ==================== Ambience Mode ======================================
-  // Ambient mode manager handles all ambient mode functionality
-  private val ambientModeManager = AmbientModeManager(
+  val ambientController = xyz.mpv.rex.ui.player.ambient.AmbientController(
     playerPreferences = playerPreferences,
-    cacheDir = host.context.cacheDir,
     scope = viewModelScope,
-    isEligibleForAmbient = {
-      _videoAspect.value == VideoAspect.Fit &&
-        _currentAspectRatio.value <= 0.0 &&
-        !_advancedZoomEnabled.value &&
-        _videoZoom.value == 0f
-    },
-    getScreenDimensions = {
-      val dm = DisplayMetrics()
-      @Suppress("DEPRECATION")
-      host.hostWindowManager.defaultDisplay.getRealMetrics(dm)
-      Pair(dm.widthPixels, dm.heightPixels)
-    },
     onShowText = { isOn ->
       val text = host.context.getString(
         if (isOn) R.string.ambient_mode_on else R.string.ambient_mode_off
@@ -507,8 +492,8 @@ class PlayerViewModel(
     }
   )
 
-  // Expose ambient mode state through the manager
-  val isAmbientEnabled: StateFlow<Boolean> = ambientModeManager.isAmbientEnabled
+  // Expose ambient mode state through the controller
+  val isAmbientEnabled: StateFlow<Boolean> = ambientController.isAmbientEnabled
 
   init {
     // Track selection is now handled by TrackSelector in PlayerActivity
@@ -656,14 +641,6 @@ class PlayerViewModel(
           }
           _preciseDuration.value = effectiveDur.toFloat()
 
-          // --- AMBIENT FIX: Adapt shader to new file dimensions ---
-          ambientModeManager.resetAmbientMode()
-          viewModelScope.launch {
-            // Slight delay ensures MPV's video-params (w/h/crop) are fully populated
-            delay(250)
-            ambientModeManager.updateAmbientStretch()
-          }
-          // --------------------------------------------------------
         } else if (dur == null || dur <= 0) {
           if (externalAudioTracks.isEmpty()) {
             _trackManager.setPrimaryVideoDuration(null)
@@ -1140,19 +1117,11 @@ class PlayerViewModel(
       MPVLib.setPropertyDouble("video-scale-y", prefScaleY.toDouble())
       _videoScaleX.value = prefScaleX
       _videoScaleY.value = prefScaleY
-      ambientModeManager.onAspectChanged()
     } else {
       _videoScaleX.value = 1f
       _videoScaleY.value = 1f
-      if (ambientModeManager.isAmbientEnabled.value &&
-          _videoAspect.value == VideoAspect.Fit &&
-          _currentAspectRatio.value <= 0.0 &&
-          _videoZoom.value == 0f) {
-        ambientModeManager.updateAmbientStretch()
-      } else {
-        MPVLib.setPropertyDouble("video-scale-x", 1.0)
-        MPVLib.setPropertyDouble("video-scale-y", 1.0)
-      }
+      MPVLib.setPropertyDouble("video-scale-x", 1.0)
+      MPVLib.setPropertyDouble("video-scale-y", 1.0)
     }
   }
 
@@ -1192,7 +1161,6 @@ class PlayerViewModel(
     // Update the state and persist to preferences
     _videoAspect.value = aspect
     _currentAspectRatio.value = -1.0 // Reset custom ratio when using standard modes
-    ambientModeManager.onAspectChanged()
     if (persistToPreferences && playerPreferences.rememberVideoAspect.get()) {
       playerPreferences.defaultVideoAspect.set(aspect)
       playerPreferences.defaultCustomAspectRatio.set(-1.0)
@@ -1216,7 +1184,6 @@ class PlayerViewModel(
     }
     _playbackManager.applyCustomAspectRatio(ratio)
     _currentAspectRatio.value = ratio
-    ambientModeManager.onAspectChanged()
     if (persistToPreferences && playerPreferences.rememberVideoAspect.get()) {
       playerPreferences.defaultCustomAspectRatio.set(ratio)
     }
@@ -1999,17 +1966,52 @@ class PlayerViewModel(
     videoFlipFilterManager.updateFilters(_isMirrored.value, _isVerticalFlipped.value)
   }
 
+  // ==================== Video Aspect Helper ====================
+
+  fun getVideoOutAspect(): Double? {
+    val rawAspect = MPVLib.getPropertyDouble("video-params/aspect")
+    val rotate = MPVLib.getPropertyInt("video-params/rotate") ?: 0
+
+    val finalAspect = if (rawAspect == null || rawAspect < 0.001) {
+      val width = runCatching {
+        MPVLib.getPropertyInt("width") ?: MPVLib.getPropertyInt("video-params/w") ?: 0
+      }.getOrDefault(0)
+
+      val height = runCatching {
+        MPVLib.getPropertyInt("height") ?: MPVLib.getPropertyInt("video-params/h") ?: 0
+      }.getOrDefault(0)
+
+      if (width > 0 && height > 0) {
+        width.toDouble() / height.toDouble()
+      } else {
+        null
+      }
+    } else {
+      rawAspect
+    }
+
+    return finalAspect?.let { aspect ->
+      if (rotate == 90 || rotate == 270) {
+        1.0 / aspect
+      } else {
+        aspect
+      }
+    }
+  }
+
   // ==================== Ambient Mode Integration ====================
 
-  fun toggleAmbientMode() = ambientModeManager.toggleAmbientMode()
+  fun toggleAmbientMode() = ambientController.toggleAmbientMode()
 
-  fun onOrientationChanged(isPortrait: Boolean) = ambientModeManager.onOrientationChanged(isPortrait)
+  fun onOrientationChanged(isPortrait: Boolean) {}
 
-  fun resetAmbientMode() = ambientModeManager.resetAmbientMode()
+  fun resetAmbientMode() {}
 
-  fun restartAmbientIfActive() = ambientModeManager.restartAmbientIfActive()
+  fun restartAmbientIfActive() {}
 
-  fun updateAmbientStretch() = ambientModeManager.updateAmbientStretch()
+  fun updateAmbientStretch() {}
+
+  fun scheduleAmbientUpdate(delayMs: Long = 350) {}
 
   // ==================== Utility ====================
 
@@ -2020,7 +2022,7 @@ class PlayerViewModel(
   override fun onCleared() {
     super.onCleared()
     _playbackManager.cancelPendingJobs()
-    ambientModeManager.cleanup()
+    ambientController.cleanup()
     videoFlipFilterManager.reset()
   }
 }
