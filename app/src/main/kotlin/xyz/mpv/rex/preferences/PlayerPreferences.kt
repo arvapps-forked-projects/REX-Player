@@ -4,6 +4,7 @@ package xyz.mpv.rex.preferences
 import xyz.mpv.rex.preferences.preference.PreferenceStore
 import xyz.mpv.rex.preferences.preference.getEnum
 import xyz.mpv.rex.ui.player.BackgroundPlaybackMode
+import xyz.mpv.rex.ui.player.PlaybackControlsPosition
 import xyz.mpv.rex.ui.player.PlayerOrientation
 import xyz.mpv.rex.ui.player.RepeatMode
 import xyz.mpv.rex.ui.player.ResumePlaybackMode
@@ -84,6 +85,7 @@ class PlayerPreferences(
 
   val useWavySeekbar = preferenceStore.getBoolean("use_wavy_seekbar", true)
   val bottomControlsBelowSeekbar = preferenceStore.getBoolean("bottom_controls_below_seekbar", false)
+  val playbackControlsPosition = preferenceStore.getEnum("playback_controls_position", PlaybackControlsPosition.Center)
   val showSeekBarWhenSeeking = preferenceStore.getBoolean("show_seekbar_when_seeking", false)
   val whiteSeekBar = preferenceStore.getBoolean("white_seekbar", false)
   val showSeekbarChapters = preferenceStore.getBoolean("show_seekbar_chapters", true)

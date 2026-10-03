@@ -102,6 +102,7 @@ import xyz.mpv.rex.ui.player.Sheets
 import xyz.mpv.rex.ui.player.controls.RenderPlayerButton
 import xyz.mpv.rex.ui.theme.spacing
 import xyz.mpv.rex.ui.player.PlayerOrientation
+import xyz.mpv.rex.ui.player.PlaybackControlsPosition
 import `is`.xyz.mpv.*
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.Dispatchers
@@ -649,6 +650,10 @@ fun ControlsTab(
       Spacer(modifier = Modifier.height(MaterialTheme.spacing.smaller))
 
       PlayerTimeToDisappearPreferenceItem()
+
+      Spacer(modifier = Modifier.height(MaterialTheme.spacing.smaller))
+
+      PlaybackControlsPositionPreferenceItem()
   }
 }
 
@@ -1312,6 +1317,87 @@ private fun PlayerTimeToDisappearPreferenceItem() {
       },
       dismissButton = {
         TextButton(onClick = { showCustomDialog = false }) {
+          Text(stringResource(R.string.generic_cancel))
+        }
+      }
+    )
+  }
+}
+
+@Composable
+private fun PlaybackControlsPositionPreferenceItem() {
+  val playerPreferences = koinInject<PlayerPreferences>()
+  val playbackControlsPosition by playerPreferences.playbackControlsPosition.collectAsState()
+  var showDialog by remember { mutableStateOf(false) }
+
+  Surface(
+    shape = MaterialTheme.shapes.medium,
+    color = MaterialTheme.colorScheme.surfaceContainerLow,
+    modifier = Modifier.fillMaxWidth()
+  ) {
+    ListItem(
+      modifier = Modifier
+        .fillMaxWidth()
+        .clickable { showDialog = true },
+      headlineContent = {
+        Text(
+          text = stringResource(R.string.pref_playback_controls_position_title),
+          style = MaterialTheme.typography.bodyLarge
+        )
+      },
+      supportingContent = {
+        Text(
+          text = stringResource(playbackControlsPosition.titleRes),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.outline
+        )
+      },
+      trailingContent = {
+        Icon(
+          imageVector = Icons.Default.Tune,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+      }
+    )
+  }
+
+  if (showDialog) {
+    AlertDialog(
+      onDismissRequest = { showDialog = false },
+      title = { Text(stringResource(R.string.pref_playback_controls_position_title)) },
+      text = {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+        ) {
+          PlaybackControlsPosition.entries.forEach { position ->
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                  playerPreferences.playbackControlsPosition.set(position)
+                  showDialog = false
+                }
+                .padding(vertical = 12.dp, horizontal = 8.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              RadioButton(
+                selected = playbackControlsPosition == position,
+                onClick = null
+              )
+              Spacer(modifier = Modifier.width(12.dp))
+              Text(
+                text = stringResource(position.titleRes),
+                style = MaterialTheme.typography.bodyLarge
+              )
+            }
+          }
+        }
+      },
+      confirmButton = {
+        TextButton(onClick = { showDialog = false }) {
           Text(stringResource(R.string.generic_cancel))
         }
       }

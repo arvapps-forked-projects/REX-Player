@@ -50,6 +50,7 @@ import xyz.mpv.rex.preferences.PlayerButton
 import xyz.mpv.rex.preferences.allPlayerButtons
 import xyz.mpv.rex.preferences.PlayerPreferences
 import xyz.mpv.rex.preferences.SeekbarStyle
+import xyz.mpv.rex.ui.player.PlaybackControlsPosition
 import xyz.mpv.rex.preferences.preference.collectAsState
 import xyz.mpv.rex.presentation.Screen
 import xyz.mpv.rex.presentation.components.GroupPosition
@@ -347,9 +348,28 @@ object PlayerControlsPreferencesScreen : Screen {
                     }
                     item {
                         val bottomControlsBelowSeekbar by playerPrefs.bottomControlsBelowSeekbar.collectAsState()
+                        val playbackControlsPosition by playerPrefs.playbackControlsPosition.collectAsState()
                         GroupedListColumn {
                             GroupedPreferenceCard(
-                                position = GroupPosition.ONLY,
+                                position = GroupPosition.FIRST,
+                                highlightKey = R.string.pref_playback_controls_position_title,
+                            ) {
+                                ListPreference(
+                                    value = playbackControlsPosition,
+                                    onValueChange = { playerPrefs.playbackControlsPosition.set(it) },
+                                    values = PlaybackControlsPosition.entries,
+                                    valueToText = { AnnotatedString(context.getString(it.titleRes)) },
+                                    title = {
+                                        Text(text = stringResource(R.string.pref_playback_controls_position_title))
+                                    },
+                                    summary = {
+                                        Text(text = stringResource(playbackControlsPosition.titleRes))
+                                    },
+                                )
+                            }
+
+                            GroupedPreferenceCard(
+                                position = GroupPosition.LAST,
                                 highlightKey = R.string.pref_controls_layout_below_seekbar_title,
                             ) {
                                 SwitchPreference(

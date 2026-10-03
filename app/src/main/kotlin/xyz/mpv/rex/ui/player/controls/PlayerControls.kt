@@ -113,6 +113,7 @@ import xyz.mpv.rex.preferences.preference.plusAssign
 import xyz.mpv.rex.preferences.preference.minusAssign
 import xyz.mpv.rex.ui.player.Decoder.Companion.getDecoderFromValue
 import xyz.mpv.rex.ui.player.Panels
+import xyz.mpv.rex.ui.player.PlaybackControlsPosition
 import xyz.mpv.rex.ui.player.PlayerActivity
 import xyz.mpv.rex.ui.player.PlayerUpdates
 import xyz.mpv.rex.ui.player.PlayerViewModel
@@ -411,6 +412,8 @@ fun PlayerControls(
         val floatingFrameNav = createRef()
 
         val bottomControlsBelowSeekbar by playerPreferences.bottomControlsBelowSeekbar.collectAsState()
+        val playbackControlsPosition by playerPreferences.playbackControlsPosition.collectAsState()
+        val isPlaybackControlsAtBottom = playbackControlsPosition == PlaybackControlsPosition.Bottom
 
         val isBrightnessSliderShown by viewModel.isBrightnessSliderShown.collectAsState()
         val isVolumeSliderShown by viewModel.isVolumeSliderShown.collectAsState()
@@ -1027,22 +1030,51 @@ fun PlayerControls(
 
         AnimatedVisibility(
           visible =
-            ((controlsShown && !areSlidersShown) && !areControlsLocked) && !loadingState.visible,
+            ((controlsShown && !areSlidersShown) && !areControlsLocked) && !loadingState.visible && playbackControlsPosition != PlaybackControlsPosition.Hide,
           enter = fadeIn(playerControlsEnterAnimationSpec()),
           exit = fadeOut(playerControlsExitAnimationSpec()),
           modifier =
-            Modifier.constrainAs(playerPauseButton) {
-              end.linkTo(parent.absoluteRight)
-              start.linkTo(parent.absoluteLeft)
-              if (isPortrait) {
-                top.linkTo(parent.top)
-                bottom.linkTo(parent.bottom)
-                verticalBias = 0.5f
-              } else {
-                top.linkTo(parent.top)
-                bottom.linkTo(parent.bottom)
-              }
-            },
+            Modifier
+              .then(
+                if (isPlaybackControlsAtBottom && showSystemNavigationBar && bottomControlsBelowSeekbar) {
+                  val navBarPadding = WindowInsets.navigationBars.asPaddingValues()
+                  Modifier.padding(
+                    bottom = navBarPadding.calculateBottomPadding()
+                  )
+                } else {
+                  Modifier
+                }
+              )
+              .constrainAs(playerPauseButton) {
+                if (isPlaybackControlsAtBottom) {
+                  start.linkTo(parent.start)
+                  end.linkTo(parent.end)
+                  if (isPortrait) {
+                    if (bottomControlsBelowSeekbar) {
+                      bottom.linkTo(parent.bottom, spacing.large)
+                    } else {
+                      bottom.linkTo(seekbar.top, spacing.smaller)
+                    }
+                  } else {
+                    if (bottomControlsBelowSeekbar) {
+                      bottom.linkTo(parent.bottom, spacing.medium)
+                    } else {
+                      bottom.linkTo(seekbar.top, spacing.small)
+                    }
+                  }
+                } else {
+                  end.linkTo(parent.absoluteRight)
+                  start.linkTo(parent.absoluteLeft)
+                  if (isPortrait) {
+                    top.linkTo(parent.top)
+                    bottom.linkTo(parent.bottom)
+                    verticalBias = 0.5f
+                  } else {
+                    top.linkTo(parent.top)
+                    bottom.linkTo(parent.bottom)
+                  }
+                }
+              },
         ) {
           val icon = AnimatedImageVector.animatedVectorResource(R.drawable.anim_play_to_pause)
           val interaction = remember { MutableInteractionSource() }
@@ -1075,11 +1107,14 @@ fun PlayerControls(
                 else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
               )
 
-              if (showNextPreviousButtons && playlistItems.isNotEmpty() && playlistIndex >= 0 && viewModel.hasPlaylistSupport()) {
-                val canGoPrevious = viewModel.hasPrevious()
-                val canGoNext = viewModel.hasNext()
+              val hasPlaylist = playlistItems.isNotEmpty() && playlistIndex >= 0 && viewModel.hasPlaylistSupport()
+              val showPrevNext = showNextPreviousButtons && (hasPlaylist || isPlaybackControlsAtBottom)
+
+              if (showPrevNext) {
+                val canGoPrevious = if (hasPlaylist) viewModel.hasPrevious() else false
+                val canGoNext = if (hasPlaylist) viewModel.hasNext() else false
                 if (!hideBackground) {
-                  val centerDockShape = RoundedCornerShape(22.dp)
+                  val centerDockShape = if (isPlaybackControlsAtBottom) RoundedCornerShape(16.dp) else RoundedCornerShape(22.dp)
                   val centerGlassModifier = if (enableGlass) {
                     Modifier.glassSurface(
                       shape = centerDockShape,
@@ -1103,7 +1138,7 @@ fun PlayerControls(
                     Modifier
                   }
                   Surface(
-                    modifier = Modifier.height(60.dp).then(centerGlassModifier),
+                    modifier = Modifier.height(if (isPlaybackControlsAtBottom) 42.dp else 60.dp).then(centerGlassModifier),
                     shape = centerDockShape,
                     color = surfaceColor,
                     contentColor = contentColor,
@@ -1112,14 +1147,17 @@ fun PlayerControls(
                     border = borderColor,
                   ) {
                     Row(
-                      modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                      horizontalArrangement = Arrangement.spacedBy(8.dp),
+                      modifier = Modifier.padding(
+                        horizontal = if (isPlaybackControlsAtBottom) 4.dp else 6.dp,
+                        vertical = if (isPlaybackControlsAtBottom) 2.dp else 4.dp
+                      ),
+                      horizontalArrangement = Arrangement.spacedBy(if (isPlaybackControlsAtBottom) 4.dp else 8.dp),
                       verticalAlignment = Alignment.CenterVertically,
                     ) {
                       Box(
                         modifier = Modifier
-                          .size(44.dp)
-                          .clip(RoundedCornerShape(14.dp))
+                          .size(if (isPlaybackControlsAtBottom) 36.dp else 44.dp)
+                          .clip(RoundedCornerShape(if (isPlaybackControlsAtBottom) 12.dp else 14.dp))
                           .clickable(
                             enabled = canGoPrevious,
                             interactionSource = remember { MutableInteractionSource() },
@@ -1135,14 +1173,14 @@ fun PlayerControls(
                           imageVector = Icons.Default.SkipPrevious,
                           contentDescription = "Previous",
                           tint = if (canGoPrevious) contentColor.copy(alpha = 0.85f) else contentColor.copy(alpha = 0.35f),
-                          modifier = Modifier.size(28.dp),
+                          modifier = Modifier.size(if (isPlaybackControlsAtBottom) 22.dp else 28.dp),
                         )
                       }
 
                       Box(
                         modifier = Modifier
-                          .size(52.dp)
-                          .clip(RoundedCornerShape(16.dp))
+                          .size(if (isPlaybackControlsAtBottom) 38.dp else 52.dp)
+                          .clip(RoundedCornerShape(if (isPlaybackControlsAtBottom) 12.dp else 16.dp))
                           .background(
                             if (matchTheme) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
                             else if (enableGlass) Color.White.copy(alpha = 0.12f)
@@ -1162,7 +1200,7 @@ fun PlayerControls(
                           painter = rememberAnimatedVectorPainter(icon, paused == false),
                           modifier = Modifier
                             .fillMaxSize()
-                            .padding(MaterialTheme.spacing.small),
+                            .padding(if (isPlaybackControlsAtBottom) 6.dp else MaterialTheme.spacing.small),
                           contentDescription = null,
                           colorFilter = ColorFilter.tint(contentColor),
                         )
@@ -1170,8 +1208,8 @@ fun PlayerControls(
 
                       Box(
                         modifier = Modifier
-                          .size(44.dp)
-                          .clip(RoundedCornerShape(14.dp))
+                          .size(if (isPlaybackControlsAtBottom) 36.dp else 44.dp)
+                          .clip(RoundedCornerShape(if (isPlaybackControlsAtBottom) 12.dp else 14.dp))
                           .clickable(
                             enabled = canGoNext,
                             interactionSource = remember { MutableInteractionSource() },
@@ -1187,19 +1225,19 @@ fun PlayerControls(
                           imageVector = Icons.Default.SkipNext,
                           contentDescription = "Next",
                           tint = if (canGoNext) contentColor.copy(alpha = 0.85f) else contentColor.copy(alpha = 0.35f),
-                          modifier = Modifier.size(28.dp),
+                          modifier = Modifier.size(if (isPlaybackControlsAtBottom) 22.dp else 28.dp),
                         )
                       }
                     }
                   }
                 } else {
                   Row(
-                    horizontalArrangement = Arrangement.spacedBy(28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(if (isPlaybackControlsAtBottom) 16.dp else 28.dp),
                     verticalAlignment = Alignment.CenterVertically,
                   ) {
                     Box(
                       modifier = Modifier
-                        .size(44.dp)
+                        .size(if (isPlaybackControlsAtBottom) 36.dp else 44.dp)
                         .clip(CircleShape)
                         .clickable(
                           enabled = canGoPrevious,
@@ -1216,13 +1254,13 @@ fun PlayerControls(
                         imageVector = Icons.Default.SkipPrevious,
                         contentDescription = "Previous",
                         tint = if (canGoPrevious) contentColor.copy(alpha = 0.85f) else contentColor.copy(alpha = 0.35f),
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(if (isPlaybackControlsAtBottom) 24.dp else 32.dp),
                       )
                     }
 
                     Box(
                       modifier = Modifier
-                        .size(60.dp)
+                        .size(if (isPlaybackControlsAtBottom) 42.dp else 60.dp)
                         .clip(CircleShape)
                         .background(brush = buttonShadow, shape = CircleShape)
                         .clickable(
@@ -1239,7 +1277,7 @@ fun PlayerControls(
                         painter = rememberAnimatedVectorPainter(icon, paused == false),
                         modifier = Modifier
                           .fillMaxSize()
-                          .padding(MaterialTheme.spacing.small),
+                          .padding(if (isPlaybackControlsAtBottom) 6.dp else MaterialTheme.spacing.small),
                         contentDescription = null,
                         colorFilter = ColorFilter.tint(contentColor),
                       )
@@ -1247,7 +1285,7 @@ fun PlayerControls(
 
                     Box(
                       modifier = Modifier
-                        .size(44.dp)
+                        .size(if (isPlaybackControlsAtBottom) 36.dp else 44.dp)
                         .clip(CircleShape)
                         .clickable(
                           enabled = canGoNext,
@@ -1264,16 +1302,16 @@ fun PlayerControls(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "Next",
                         tint = if (canGoNext) contentColor.copy(alpha = 0.85f) else contentColor.copy(alpha = 0.35f),
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(if (isPlaybackControlsAtBottom) 24.dp else 32.dp),
                       )
                     }
                   }
                 }
               } else {
-                val heroShape = if (hideBackground) CircleShape else RoundedCornerShape(18.dp)
+                val heroShape = if (hideBackground) CircleShape else RoundedCornerShape(if (isPlaybackControlsAtBottom) 14.dp else 18.dp)
                 val heroGlassModifier = if (enableGlass && !hideBackground) {
                   Modifier.glassSurface(
-                    shape = RoundedCornerShape(18.dp),
+                    shape = heroShape,
                     backgroundColor = Color.White.copy(alpha = 0.08f),
                     borderColor = Color.White.copy(alpha = 0.18f),
                     borderWidth = 1.dp,
@@ -1296,7 +1334,7 @@ fun PlayerControls(
                 Surface(
                   modifier =
                     Modifier
-                      .size(58.dp)
+                      .size(if (isPlaybackControlsAtBottom) 42.dp else 58.dp)
                       .then(heroGlassModifier)
                       .clip(heroShape)
                       .clickable(interaction, ripple(), onClick = {
@@ -1321,7 +1359,7 @@ fun PlayerControls(
                     painter = rememberAnimatedVectorPainter(icon, paused == false),
                     modifier = Modifier
                       .fillMaxSize()
-                      .padding(MaterialTheme.spacing.small),
+                      .padding(if (isPlaybackControlsAtBottom) 6.dp else MaterialTheme.spacing.small),
                     contentDescription = null,
                     colorFilter = ColorFilter.tint(contentColor),
                   )
@@ -1626,9 +1664,17 @@ fun PlayerControls(
               .constrainAs(bottomRightControls) {
                 if (isPortrait) {
                   if (bottomControlsBelowSeekbar) {
-                    bottom.linkTo(parent.bottom, spacing.large) // Space from screen bottom
+                    if (isPlaybackControlsAtBottom) {
+                      bottom.linkTo(playerPauseButton.top, spacing.smaller)
+                    } else {
+                      bottom.linkTo(parent.bottom, spacing.large) // Space from screen bottom
+                    }
                   } else {
-                    bottom.linkTo(seekbar.top, spacing.smaller) // Tight gap to seekbar
+                    if (isPlaybackControlsAtBottom) {
+                      bottom.linkTo(playerPauseButton.top, spacing.smaller)
+                    } else {
+                      bottom.linkTo(seekbar.top, spacing.smaller) // Tight gap to seekbar
+                    }
                   }
                   start.linkTo(parent.start, spacing.medium)
                   end.linkTo(parent.end, spacing.medium)
@@ -1638,6 +1684,10 @@ fun PlayerControls(
                     bottom.linkTo(parent.bottom, spacing.medium)
                   } else {
                     bottom.linkTo(seekbar.top, spacing.small)
+                  }
+                  if (isPlaybackControlsAtBottom) {
+                    start.linkTo(playerPauseButton.end, spacing.small)
+                    horizontalBias = 1f
                   }
                   end.linkTo(parent.end, spacing.medium)
                 }
@@ -1723,7 +1773,11 @@ fun PlayerControls(
                 }
                 start.linkTo(parent.start, spacing.medium)
                 width = Dimension.fillToConstraints
-                end.linkTo(bottomRightControls.start, spacing.small)
+                if (isPlaybackControlsAtBottom) {
+                  end.linkTo(playerPauseButton.start, spacing.small)
+                } else {
+                  end.linkTo(bottomRightControls.start, spacing.small)
+                }
               },
         ) {
           BottomLeftPlayerControlsLandscape(

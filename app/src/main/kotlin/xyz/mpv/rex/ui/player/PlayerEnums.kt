@@ -19,6 +19,14 @@ enum class PlayerOrientation(
   SensorLandscape(R.string.pref_player_orientation_sensor_landscape),
 }
 
+enum class PlaybackControlsPosition(
+  @StringRes val titleRes: Int,
+) {
+  Center(R.string.pref_playback_controls_position_center),
+  Bottom(R.string.pref_playback_controls_position_bottom),
+  Hide(R.string.pref_playback_controls_position_hide),
+}
+
 enum class BackgroundPlaybackMode(
   @StringRes val titleRes: Int,
 ) {

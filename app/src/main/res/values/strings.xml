@@ -1154,7 +1154,12 @@
     <string name="pref_controls_layout_header">Controls Layout</string>
     <string name="pref_player_appearance_header">Appearance</string>
 
-    <!-- Controls Layout: below/above seekbar -->
+    <!-- Controls Layout: playback controls position & below/above seekbar -->
+    <string name="pref_playback_controls_position_title">Playback controls position</string>
+    <string name="pref_playback_controls_position_summary">Position playback controls in the center or in the bottom bar</string>
+    <string name="pref_playback_controls_position_center">Center screen</string>
+    <string name="pref_playback_controls_position_bottom">Bottom bar</string>
+    <string name="pref_playback_controls_position_hide">Hidden</string>
     <string name="pref_controls_layout_below_seekbar_title">Bottom controls below seekbar</string>
     <string name="pref_controls_layout_below_seekbar_summary_true">Control buttons appear below the seekbar</string>
     <string name="pref_controls_layout_below_seekbar_summary_false">Control buttons appear above the seekbar</string>
