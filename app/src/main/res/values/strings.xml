@@ -229,6 +229,8 @@
     <string name="pref_gesture_double_tap_subseek">Seek Subtitle</string>
     <string name="pref_gesture_reverse_double_tap_title">Reverse left/right gestures</string>
     <string name="pref_gesture_reverse_double_tap_summary">Swap the left and right double/single tap gestures</string>
+    <string name="pref_gesture_double_tap_chapter_skip_title">Double tap chapter to skip</string>
+    <string name="pref_gesture_double_tap_chapter_skip_summary">Double tap the chapter button to jump to the next chapter</string>
     <string name="pref_gesture_double_tap_play">Play/Pause</string>
     <string name="pref_gesture_double_tap_custom">Custom</string>
     <string name="pref_gesture_double_tap_left_title">Double tap (left)</string>

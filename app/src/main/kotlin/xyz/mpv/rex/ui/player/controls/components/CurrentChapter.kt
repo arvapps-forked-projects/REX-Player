@@ -9,7 +9,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
@@ -42,11 +44,13 @@ import dev.vivvvek.seeker.Segment
 import `is`.xyz.mpv.Utils
 import org.koin.compose.koinInject
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CurrentChapter(
   chapter: Segment,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
+  onDoubleClick: (() -> Unit)? = null,
 ) {
   val appearancePreferences = koinInject<AppearancePreferences>()
   val enableGlass by appearancePreferences.enableGlassPlayerControls.collectAsState()
@@ -115,7 +119,7 @@ fun CurrentChapter(
         .height(chapterHeight)
         .widthIn(max = 220.dp)
         .clip(chapterShape)
-        .clickable(onClick = onClick),
+        .combinedClickable(onClick = onClick, onDoubleClick = onDoubleClick),
     shape = chapterShape,
     color = surfaceColor,
     contentColor = contentColor,

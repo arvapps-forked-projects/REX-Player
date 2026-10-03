@@ -676,6 +676,14 @@ object SearchablePreferences {
                 targetIndex = 1,
             ))
             add(SearchablePreference(
+                titleRes = R.string.pref_gesture_double_tap_chapter_skip_title,
+                summaryRes = R.string.pref_gesture_double_tap_chapter_skip_summary,
+                keywords = listOf("chapter", "double tap", "skip", "next", "gestures"),
+                category = "Gestures",
+                screen = GesturePreferencesScreen,
+                targetIndex = 1,
+            ))
+            add(SearchablePreference(
                 titleRes = R.string.pref_gesture_double_tap_left_title,
                 keywords = listOf("double tap", "left", "seek", "backward", "rewind"),
                 category = "Gestures",

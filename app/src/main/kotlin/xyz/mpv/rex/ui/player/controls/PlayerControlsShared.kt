@@ -117,6 +117,8 @@ fun RenderPlayerButton(
   isMoreSheet: Boolean = false,
 ) {
   val appearancePreferences = org.koin.compose.koinInject<xyz.mpv.rex.preferences.AppearancePreferences>()
+  val gesturePreferences = org.koin.compose.koinInject<xyz.mpv.rex.preferences.GesturePreferences>()
+  val doubleTapChapterToSkip by gesturePreferences.doubleTapChapterToSkip.collectAsState()
   val matchTheme by appearancePreferences.matchPlayerControlsToTheme.collectAsState()
   val enableGlass by appearancePreferences.enableGlassPlayerControls.collectAsState()
   val inDock = xyz.mpv.rex.ui.player.controls.components.LocalInControlsDock.current
@@ -277,6 +279,14 @@ fun RenderPlayerButton(
 
     PlayerButton.BOOKMARKS_CHAPTERS -> {
       if (chapters.isNotEmpty()) {
+        val nextChapter = (currentChapter ?: 0) + 1
+        val onNextChapter: (() -> Unit)? =
+          if (doubleTapChapterToSkip && nextChapter < chapters.size) {
+            {
+              clickEvent()
+              `is`.xyz.mpv.MPVLib.setPropertyInt("chapter", nextChapter)
+            }
+          } else null
         if (isMoreSheet) {
           val chapter = chapters.getOrNull(currentChapter ?: 0)
           Surface(
@@ -287,10 +297,13 @@ fun RenderPlayerButton(
             modifier = Modifier
               .height(buttonSize)
               .clip(itemShape)
-              .clickable {
-                clickEvent()
-                onOpenSheet(Sheets.Chapters)
-              }
+              .combinedClickable(
+                onClick = {
+                  clickEvent()
+                  onOpenSheet(Sheets.Chapters)
+                },
+                onDoubleClick = onNextChapter,
+              )
           ) {
             Row(
               verticalAlignment = Alignment.CenterVertically,
@@ -315,6 +328,7 @@ fun RenderPlayerButton(
           ControlsButton(
             Icons.Default.Bookmarks,
             onClick = { onOpenSheet(Sheets.Chapters) },
+            onDoubleClick = onNextChapter,
             modifier = Modifier.size(buttonSize),
           )
         }
@@ -821,12 +835,19 @@ fun RenderPlayerButton(
           exit = fadeOut(),
         ) {
           chapters.getOrNull(currentChapter ?: 0)?.let { chapter ->
+            val nextChapterIndex = (currentChapter ?: 0) + 1
             CurrentChapter(
               chapter = chapter,
               onClick = {
                 clickEvent()
                 onOpenSheet(Sheets.Chapters)
               },
+              onDoubleClick = if (doubleTapChapterToSkip && nextChapterIndex < chapters.size) {
+                {
+                  clickEvent()
+                  `is`.xyz.mpv.MPVLib.setPropertyInt("chapter", nextChapterIndex)
+                }
+              } else null,
             )
           }
         }
