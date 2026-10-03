@@ -1724,7 +1724,7 @@ fun PlayerControls(
               onOpenPanel = onOpenPanel,
               viewModel = viewModel,
               activity = activity,
-              bottomPadding = if (bottomControlsBelowSeekbar) spacing.medium else 0.dp,
+              bottomPadding = if (bottomControlsBelowSeekbar && !isPlaybackControlsAtBottom) spacing.medium else 0.dp,
             )
           } else {
             BottomRightPlayerControlsLandscape(
