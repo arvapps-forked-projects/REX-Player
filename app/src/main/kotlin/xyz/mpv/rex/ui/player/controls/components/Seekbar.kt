@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.material3.Slider
@@ -151,30 +152,39 @@ fun SeekbarWithTimers(
   // Only animate position updates when user is not interacting
   // Using snapshotFlow to avoid registering a state read in this composable's scope
   LaunchedEffect(Unit) {
-    snapshotFlow { position() }.collect { currentPosVal ->
-      if (!isUserInteracting && currentPosVal != animatedPosition.value) {
-        if (currentPosVal <= 0.05f) {
-          animatedPosition.snapTo(0f)
-          userPosition = 0f
-          return@collect
-        }
+    var animJob: kotlinx.coroutines.Job? = null
+    try {
+      snapshotFlow { position() }.collect { currentPosVal ->
+        if (!isUserInteracting && currentPosVal != animatedPosition.value) {
+          if (currentPosVal <= 0.05f) {
+            animJob?.cancel()
+            scope.launch { animatedPosition.snapTo(0f) }
+            userPosition = 0f
+            return@collect
+          }
 
-        // If we recently interacted (within 2s) and the position is significantly different from the seeked target (>10s),
-        // assume it's the old position and ignore it to prevent "back and forth" glitches.
-        val timeSinceInteraction = System.currentTimeMillis() - lastInteractionTime
-        if (timeSinceInteraction < 2000 && kotlin.math.abs(currentPosVal - userPosition) > 10f) {
-          return@collect
-        }
+          // If we recently interacted (within 2s) and the position is significantly different from the seeked target (>10s),
+          // assume it's the old position and ignore it to prevent "back and forth" glitches.
+          val timeSinceInteraction = System.currentTimeMillis() - lastInteractionTime
+          if (timeSinceInteraction < 2000 && kotlin.math.abs(currentPosVal - userPosition) > 10f) {
+            return@collect
+          }
 
-        animatedPosition.animateTo(
-          targetValue = currentPosVal,
-          animationSpec =
-            tween(
-              durationMillis = 200,
-              easing = LinearEasing,
-            ),
-        )
+          animJob?.cancel()
+          animJob = scope.launch {
+            animatedPosition.animateTo(
+              targetValue = currentPosVal,
+              animationSpec =
+                tween(
+                  durationMillis = 200,
+                  easing = LinearEasing,
+                ),
+            )
+          }
+        }
       }
+    } finally {
+      animJob?.cancel()
     }
   }
 
@@ -205,6 +215,15 @@ fun SeekbarWithTimers(
     modifier.height(48.dp)
   }
 
+  val maxDuration = duration.coerceAtLeast(0f)
+  val timerWidth = remember(maxDuration, isGlassActive) {
+    when {
+      maxDuration >= 36000f -> if (isGlassActive) 72.dp else 84.dp
+      maxDuration >= 3600f -> if (isGlassActive) 64.dp else 76.dp
+      else -> if (isGlassActive) 52.dp else 60.dp
+    }
+  }
+
   Row(
     modifier = rowModifier,
     verticalAlignment = Alignment.CenterVertically,
@@ -217,7 +236,7 @@ fun SeekbarWithTimers(
         clickEvent()
         positionTimerOnClick()
       },
-      modifier = if (isGlassActive) Modifier.wrapContentWidth() else Modifier.width(92.dp),
+      modifier = Modifier.width(timerWidth),
     )
 
     // Seekbar
@@ -232,6 +251,19 @@ fun SeekbarWithTimers(
       contentAlignment = Alignment.Center,
     ) {
 
+      val handleSeek: (Float) -> Unit = { newPosition ->
+        if (!isUserInteracting) isUserInteracting = true
+        userPosition = newPosition
+        onValueChange(newPosition)
+      }
+
+      val handleSeekFinished: () -> Unit = {
+        scope.launch { animatedPosition.snapTo(userPosition) }
+        lastInteractionTime = System.currentTimeMillis()
+        isUserInteracting = false
+        onValueChangeFinished()
+      }
+
       when (seekbarStyle) {
         SeekbarStyle.Standard -> {
           StandardSeekbar(
@@ -240,17 +272,8 @@ fun SeekbarWithTimers(
             readAheadValue = readAheadValue,
             chapters = chapters,
             isCancelActive = isCancelActive,
-            onSeek = { newPosition ->
-              if (!isUserInteracting) isUserInteracting = true
-              userPosition = newPosition
-              onValueChange(newPosition)
-            },
-            onSeekFinished = {
-              scope.launch { animatedPosition.snapTo(userPosition) }
-              lastInteractionTime = System.currentTimeMillis()
-              isUserInteracting = false
-              onValueChangeFinished()
-            },
+            onSeek = handleSeek,
+            onSeekFinished = handleSeekFinished,
           )
         }
         SeekbarStyle.Wavy -> {
@@ -264,17 +287,8 @@ fun SeekbarWithTimers(
             useWavySeekbar = true,
             seekbarStyle = SeekbarStyle.Wavy,
             isCancelActive = isCancelActive,
-            onSeek = { newPosition ->
-              if (!isUserInteracting) isUserInteracting = true
-              userPosition = newPosition
-              onValueChange(newPosition)
-            },
-            onSeekFinished = {
-              scope.launch { animatedPosition.snapTo(userPosition) }
-              lastInteractionTime = System.currentTimeMillis()
-              isUserInteracting = false
-              onValueChangeFinished()
-            },
+            onSeek = handleSeek,
+            onSeekFinished = handleSeekFinished,
           )
         }
         SeekbarStyle.Circular -> {
@@ -288,17 +302,8 @@ fun SeekbarWithTimers(
             useWavySeekbar = true,
             seekbarStyle = SeekbarStyle.Circular,
             isCancelActive = isCancelActive,
-            onSeek = { newPosition ->
-              if (!isUserInteracting) isUserInteracting = true
-              userPosition = newPosition
-              onValueChange(newPosition)
-            },
-            onSeekFinished = {
-              scope.launch { animatedPosition.snapTo(userPosition) }
-              lastInteractionTime = System.currentTimeMillis()
-              isUserInteracting = false
-              onValueChangeFinished()
-            },
+            onSeek = handleSeek,
+            onSeekFinished = handleSeekFinished,
           )
         }
         SeekbarStyle.Simple -> {
@@ -312,17 +317,8 @@ fun SeekbarWithTimers(
             useWavySeekbar = false,
             seekbarStyle = SeekbarStyle.Simple, 
             isCancelActive = isCancelActive,
-            onSeek = { newPosition ->
-              if (!isUserInteracting) isUserInteracting = true
-              userPosition = newPosition
-              onValueChange(newPosition)
-            },
-            onSeekFinished = {
-              scope.launch { animatedPosition.snapTo(userPosition) }
-              lastInteractionTime = System.currentTimeMillis()
-              isUserInteracting = false
-              onValueChangeFinished()
-            },
+            onSeek = handleSeek,
+            onSeekFinished = handleSeekFinished,
           )
         }
         SeekbarStyle.Thick -> {
@@ -333,16 +329,8 @@ fun SeekbarWithTimers(
             chapters = chapters,
             seekbarStyle = SeekbarStyle.Thick,
             isCancelActive = isCancelActive,
-            onSeek = { newPosition ->
-              if (!isUserInteracting) isUserInteracting = true
-              userPosition = newPosition
-              onValueChange(newPosition)
-            },
-            onSeekFinished = {
-              scope.launch { animatedPosition.snapTo(userPosition) }
-              isUserInteracting = false
-              onValueChangeFinished()
-            },
+            onSeek = handleSeek,
+            onSeekFinished = handleSeekFinished,
             loopStart = loopStart,
             loopEnd = loopEnd,
           )
@@ -358,7 +346,7 @@ fun SeekbarWithTimers(
         clickEvent()
         durationTimerOnCLick()
       },
-      modifier = if (isGlassActive) Modifier.wrapContentWidth() else Modifier.width(92.dp),
+      modifier = Modifier.width(timerWidth),
     )
   }
 }
@@ -783,6 +771,7 @@ fun VideoTimer(
     text = timeText,
     color = if (matchTheme) MaterialTheme.colorScheme.primary else Color.White,
     textAlign = TextAlign.Center,
+    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
   )
 }
 

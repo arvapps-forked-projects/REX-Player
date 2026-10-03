@@ -1045,6 +1045,7 @@ fun GestureHandler(
           
           var gestureType: String? = null
           var hasStartedSeeking = false
+          var wasPlayingBeforeGestureSeek = false
           var hasTriggeredSubSeek = false
           var initialVideoPosition = 0f
           // Use the sensitivity preference instead of hardcoded value
@@ -1085,6 +1086,10 @@ fun GestureHandler(
                       hasStartedSeeking = true
                       viewModel.setGestureSeeking(true)
                       initialVideoPosition = position?.toFloat() ?: 0f
+                      wasPlayingBeforeGestureSeek = (paused == false)
+                      if (wasPlayingBeforeGestureSeek) {
+                        runCatching { MPVLib.setPropertyBoolean("pause", true) }
+                      }
                       
                       // Show seekbar if preference enabled
                       if (playerPreferences.showSeekBarWhenSeeking.get()) {
@@ -1148,6 +1153,10 @@ fun GestureHandler(
             } else if (pointerCount > 1) {
               // Multi-finger detected, cancel horizontal seek
               if (hasStartedSeeking) {
+                if (wasPlayingBeforeGestureSeek) {
+                  runCatching { MPVLib.setPropertyBoolean("pause", false) }
+                  wasPlayingBeforeGestureSeek = false
+                }
                 hasStartedSeeking = false
                 viewModel.setGestureSeeking(false)
                 // Clean up seeking state without showing controls
@@ -1160,6 +1169,10 @@ fun GestureHandler(
 
           // Apply the final seek when gesture ends
           if (hasStartedSeeking) {
+            if (wasPlayingBeforeGestureSeek) {
+              runCatching { MPVLib.setPropertyBoolean("pause", false) }
+              wasPlayingBeforeGestureSeek = false
+            }
             // Clear the horizontal seek update and hide seekbar after a short delay
             coroutineScope.launch {
               delay(300)

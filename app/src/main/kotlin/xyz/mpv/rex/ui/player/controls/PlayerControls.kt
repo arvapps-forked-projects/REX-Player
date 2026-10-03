@@ -231,12 +231,18 @@ fun PlayerControls(
   var isCloseToStart by remember { mutableStateOf(false) }
   var changeCount by remember { mutableStateOf(0) }
   var resetControlsTimestamp by remember { mutableStateOf(0L) }
+  var wasPlayingBeforeSeek by remember { mutableStateOf(false) }
+  val isPlaybackPaused = if (isSeeking && wasPlayingBeforeSeek) false else (paused ?: false)
 
   LaunchedEffect(playlistIndex, mediaIdentifier.ifBlank { mediaTitle }) {
+    if (wasPlayingBeforeSeek) {
+      runCatching { MPVLib.setPropertyBoolean("pause", false) }
+    }
     isSeeking = false
     dragStartValue = -1f
     isCloseToStart = false
     changeCount = 0
+    wasPlayingBeforeSeek = false
   }
   val seekText by viewModel.seekText.collectAsState()
   val currentChapter by MPVLib.propInt["chapter"].collectAsState()
@@ -1197,7 +1203,7 @@ fun PlayerControls(
                         contentAlignment = Alignment.Center,
                       ) {
                         Image(
-                          painter = rememberAnimatedVectorPainter(icon, paused == false),
+                          painter = rememberAnimatedVectorPainter(icon, !isPlaybackPaused),
                           modifier = Modifier
                             .fillMaxSize()
                             .padding(if (isPlaybackControlsAtBottom) 6.dp else MaterialTheme.spacing.small),
@@ -1274,7 +1280,7 @@ fun PlayerControls(
                       contentAlignment = Alignment.Center,
                     ) {
                       Image(
-                        painter = rememberAnimatedVectorPainter(icon, paused == false),
+                        painter = rememberAnimatedVectorPainter(icon, !isPlaybackPaused),
                         modifier = Modifier
                           .fillMaxSize()
                           .padding(if (isPlaybackControlsAtBottom) 6.dp else MaterialTheme.spacing.small),
@@ -1356,7 +1362,7 @@ fun PlayerControls(
                   border = borderColor,
                 ) {
                   Image(
-                    painter = rememberAnimatedVectorPainter(icon, paused == false),
+                    painter = rememberAnimatedVectorPainter(icon, !isPlaybackPaused),
                     modifier = Modifier
                       .fillMaxSize()
                       .padding(if (isPlaybackControlsAtBottom) 6.dp else MaterialTheme.spacing.small),
@@ -1451,6 +1457,10 @@ fun PlayerControls(
                 if (dragStartValue == -1f) {
                   dragStartValue = precisePosition
                   changeCount = 0
+                  wasPlayingBeforeSeek = (paused == false)
+                  if (wasPlayingBeforeSeek) {
+                    runCatching { MPVLib.setPropertyBoolean("pause", true) }
+                  }
                 }
                 changeCount++
                 isSeeking = true
@@ -1477,10 +1487,14 @@ fun PlayerControls(
                   viewModel.seekTo(dragStartValue.toInt())
                   viewModel.playerUpdate.value = PlayerUpdates.None
                 }
+                if (wasPlayingBeforeSeek) {
+                  runCatching { MPVLib.setPropertyBoolean("pause", false) }
+                }
                 isSeeking = false
                 dragStartValue = -1f
                 isCloseToStart = false
                 changeCount = 0
+                wasPlayingBeforeSeek = false
                 resetControlsTimestamp = System.currentTimeMillis()
                 viewModel.showControls()
               },
@@ -1491,7 +1505,7 @@ fun PlayerControls(
               },
               positionTimerOnClick = {},
               chapters = chapters.toImmutableList(),
-              paused = paused ?: false,
+              paused = isPlaybackPaused,
               readAheadValue = { readAheadPosition },
               seekbarStyle = seekbarStyle,
               loopStart = abLoopA?.toFloat(),
