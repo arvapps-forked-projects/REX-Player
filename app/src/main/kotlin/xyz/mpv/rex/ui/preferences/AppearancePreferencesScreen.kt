@@ -204,6 +204,7 @@ object AppearancePreferencesScreen : Screen {
                         val enableGlassPlayerControls by preferences.enableGlassPlayerControls.collectAsState()
                         val enableGlassSeekbarBackground by preferences.enableGlassSeekbarBackground.collectAsState()
                         val playerAlwaysDarkMode by preferences.playerAlwaysDarkMode.collectAsState()
+                        val hidePlayFabShowInHeader by preferences.hidePlayFabShowInHeader.collectAsState()
 
                         GroupedListColumn {
                             GroupedPreferenceCard(
@@ -303,6 +304,18 @@ object AppearancePreferencesScreen : Screen {
                                     enabled = enableGlassPlayerControls,
                                     title = { Text(text = stringResource(id = R.string.pref_appearance_enable_glass_seekbar_title)) },
                                     summary = { Text(text = stringResource(id = R.string.pref_appearance_enable_glass_seekbar_summary)) },
+                                )
+                            }
+
+                            GroupedPreferenceCard(
+                                position = GroupPosition.MIDDLE,
+                                highlightKey = R.string.pref_appearance_hide_play_fab_show_in_header_title,
+                            ) {
+                                SwitchPreference(
+                                    value = hidePlayFabShowInHeader,
+                                    onValueChange = { preferences.hidePlayFabShowInHeader.set(it) },
+                                    title = { Text(text = stringResource(id = R.string.pref_appearance_hide_play_fab_show_in_header_title)) },
+                                    summary = { Text(text = stringResource(id = R.string.pref_appearance_hide_play_fab_show_in_header_summary)) },
                                 )
                             }
 

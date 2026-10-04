@@ -146,6 +146,8 @@ object RecentlyPlayedScreen : Screen {
     val gridState = remember { LazyGridState() }
     val browserPreferences = koinInject<BrowserPreferences>()
     val mediaLayoutMode by browserPreferences.mediaLayoutMode.collectAsState()
+    val appearancePreferences = koinInject<xyz.mpv.rex.preferences.AppearancePreferences>()
+    val hidePlayFabShowInHeader by appearancePreferences.hidePlayFabShowInHeader.collectAsState()
     xyz.mpv.rex.ui.browser.fab.FabScrollHelper.trackScrollForFabVisibility(
       listState = listState,
       gridState = if (mediaLayoutMode == MediaLayoutMode.GRID) gridState else null,
@@ -189,6 +191,19 @@ object RecentlyPlayedScreen : Screen {
             onSettingsClick = {
               backStack.add(xyz.mpv.rex.ui.preferences.PreferencesScreen)
             },
+            normalPlayClick = if (hidePlayFabShowInHeader && recentItems.isNotEmpty()) {
+              {
+                coroutineScope.launch {
+                  val recentlyPlayedVideos = xyz.mpv.rex.utils.history.RecentlyPlayedOps.getRecentlyPlayed(limit = 1)
+                  val lastPlayed = recentlyPlayedVideos.firstOrNull()
+                  if (lastPlayed != null) {
+                    MediaUtils.playFile(lastPlayed.filePath, context, "recently_played_button")
+                  } else {
+                    android.widget.Toast.makeText(context, context.getString(R.string.no_recently_played_videos), android.widget.Toast.LENGTH_SHORT).show()
+                  }
+                }
+              }
+            } else null,
             isSingleSelection = selectionManager.isSingleSelection,
             onInfoClick = null, // No info in recently played
             onPlayClick = null,
@@ -199,7 +214,7 @@ object RecentlyPlayedScreen : Screen {
           )
         },
       floatingActionButton = {
-        if (!selectionManager.isInSelectionMode && isFabVisible.value && recentItems.isNotEmpty()) {
+        if (!hidePlayFabShowInHeader && !selectionManager.isInSelectionMode && isFabVisible.value && recentItems.isNotEmpty()) {
           TooltipBox(
             positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
             tooltip = { PlainTooltip { Text(stringResource(R.string.play_recently_played_or_first)) } },
@@ -207,7 +222,7 @@ object RecentlyPlayedScreen : Screen {
           ) {
             FloatingActionButton(
               modifier = Modifier
-                .padding(bottom = navigationBarHeight + 8.dp)
+                .padding(bottom = (navigationBarHeight - 16.dp).coerceAtLeast(12.dp))
                 .animateFloatingActionButton(
                   visible = true,
                   alignment = Alignment.BottomEnd,

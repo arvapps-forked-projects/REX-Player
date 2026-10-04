@@ -243,6 +243,8 @@ data class VideoListScreen(
 
     val autoScrollToLastPlayed by browserPreferences.autoScrollToLastPlayed.collectAsState()
     val mediaLayoutMode by browserPreferences.mediaLayoutMode.collectAsState()
+    val appearancePreferences = koinInject<xyz.mpv.rex.preferences.AppearancePreferences>()
+    val hidePlayFabShowInHeader by appearancePreferences.hidePlayFabShowInHeader.collectAsState()
 
     // UI state - use standalone states to avoid scroll issues with predictive back gesture
     val rememberedListIndex = rememberSaveable { mutableIntStateOf(0) }
@@ -389,6 +391,22 @@ data class VideoListScreen(
           onSettingsClick = {
             backstack.add(xyz.mpv.rex.ui.preferences.PreferencesScreen)
           },
+          normalPlayClick = if (hidePlayFabShowInHeader && sortedVideosWithInfo.isNotEmpty()) {
+            {
+              coroutineScope.launch {
+                val folderPath = sortedVideosWithInfo.firstOrNull()?.video?.path?.let { File(it).parent } ?: ""
+                val recentlyPlayedVideos = RecentlyPlayedOps.getRecentlyPlayed(limit = 100)
+                val lastPlayedInFolder = recentlyPlayedVideos.firstOrNull {
+                  File(it.filePath).parent == folderPath
+                }
+                if (lastPlayedInFolder != null) {
+                  MediaUtils.playFile(lastPlayedInFolder.filePath, context, "recently_played_button")
+                } else {
+                  MediaUtils.playFile(sortedVideosWithInfo.first().video, context, "first_video_button")
+                }
+              }
+            }
+          } else null,
           isSingleSelection = selectionManager.isSingleSelection,
           onInfoClick = {
             val selected = selectionManager.getSelectedItems()
@@ -448,7 +466,7 @@ data class VideoListScreen(
       },
       floatingActionButton = {
         val navigationBarHeight = xyz.mpv.rex.ui.browser.LocalNavigationBarHeight.current
-        if (sortedVideosWithInfo.isNotEmpty()) {
+        if (!hidePlayFabShowInHeader && sortedVideosWithInfo.isNotEmpty()) {
           TooltipBox(
             positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
             tooltip = { PlainTooltip { Text(stringResource(R.string.play_recently_played_or_first)) } },
@@ -457,7 +475,7 @@ data class VideoListScreen(
             FloatingActionButton(
               modifier = Modifier
                 .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(bottom = navigationBarHeight)
+                .padding(bottom = (navigationBarHeight - 16.dp).coerceAtLeast(12.dp))
                 .animateFloatingActionButton(
                   visible = !selectionManager.isInSelectionMode && isFabVisible.value,
                   alignment = Alignment.BottomEnd,

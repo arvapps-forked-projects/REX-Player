@@ -192,6 +192,8 @@ object FolderListScreen : Screen {
     val gesturePreferences = koinInject<GesturePreferences>()
     val foldersPreferences = koinInject<FoldersPreferences>()
     val advancedPreferences = koinInject<xyz.mpv.rex.preferences.AdvancedPreferences>()
+    val appearancePreferences = koinInject<AppearancePreferences>()
+    val hidePlayFabShowInHeader by appearancePreferences.hidePlayFabShowInHeader.collectAsState()
 
     // State collection
     val videoFolders by viewModel.videoFolders.collectAsState()
@@ -448,6 +450,19 @@ object FolderListScreen : Screen {
           onCancelSelection = { selectionManager.clear() },
           onSortClick = { sortDialogOpen.value = true },
           onSearchClick = { backstack.add(xyz.mpv.rex.ui.browser.search.SearchScreen()) },
+            normalPlayClick = if (hidePlayFabShowInHeader) {
+              {
+                coroutineScope.launch {
+                  val recentlyPlayedVideos = RecentlyPlayedOps.getRecentlyPlayed(limit = 1)
+                  val lastPlayed = recentlyPlayedVideos.firstOrNull()
+                  if (lastPlayed != null) {
+                    MediaUtils.playFile(lastPlayed.filePath, context, "recently_played_button")
+                  } else {
+                    Toast.makeText(context, context.getString(R.string.no_recently_played_videos), Toast.LENGTH_SHORT).show()
+                  }
+                }
+              }
+            } else null,
             onSettingsClick = {
               backstack.add(xyz.mpv.rex.ui.preferences.PreferencesScreen)
             },
@@ -535,6 +550,7 @@ object FolderListScreen : Screen {
           )
         },
       floatingActionButton = {
+        if (!hidePlayFabShowInHeader) {
         FloatingActionButtonMenu(
           modifier = Modifier.padding(bottom = navigationBarHeight + 8.dp),
           expanded = isFabExpanded.value,
@@ -637,6 +653,7 @@ object FolderListScreen : Screen {
             icon = { Icon(Icons.Filled.Link, contentDescription = null) },
             text = { Text(text = "Open Link") },
           )
+        }
         }
       },
     ) { padding ->

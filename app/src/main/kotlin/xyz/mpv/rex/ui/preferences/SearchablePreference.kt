@@ -77,6 +77,14 @@ object SearchablePreferences {
                 targetIndex = 3,
             ))
             add(SearchablePreference(
+                titleRes = R.string.pref_appearance_hide_play_fab_show_in_header_title,
+                summaryRes = R.string.pref_appearance_hide_play_fab_show_in_header_summary,
+                keywords = listOf("play", "fab", "floating", "header", "top bar", "button", "hide"),
+                category = "Appearance",
+                screen = AppearancePreferencesScreen,
+                targetIndex = 3,
+            ))
+            add(SearchablePreference(
                 titleRes = R.string.pref_appearance_tab_home_title,
                 summaryRes = R.string.pref_appearance_tab_home_summary,
                 keywords = listOf("home", "tab", "navigation", "bottom bar"),

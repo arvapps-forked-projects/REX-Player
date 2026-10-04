@@ -47,6 +47,7 @@ class AppearancePreferences(
   val showNetworkThumbnails = preferenceStore.getBoolean("show_network_thumbnails", false)
   val seekbarStyle = preferenceStore.getEnum("seekbar_style", SeekbarStyle.Standard)
   val playerAlwaysDarkMode = preferenceStore.getBoolean("player_always_dark_mode", true)
+  val hidePlayFabShowInHeader = preferenceStore.getBoolean("hide_play_fab_show_in_header", false)
 
   val thumbnailStrategy = preferenceStore.getEnum("thumbnail_strategy", ThumbnailStrategy.FirstFrame)
   val thumbnailPositionPercent = preferenceStore.getInt("thumbnail_position_percent", THUMBNAIL_POSITION_DEFAULT)

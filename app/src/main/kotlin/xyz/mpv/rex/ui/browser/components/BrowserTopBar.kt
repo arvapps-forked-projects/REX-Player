@@ -113,6 +113,7 @@ fun BrowserTopBar(
   isSingleSelection: Boolean = false,
   onInfoClick: (() -> Unit)? = null,
   onPlayClick: (() -> Unit)? = null,
+  normalPlayClick: (() -> Unit)? = null,
   onSelectAll: (() -> Unit)? = null,
   onInvertSelection: (() -> Unit)? = null,
   onDeselectAll: (() -> Unit)? = null,
@@ -163,6 +164,7 @@ fun BrowserTopBar(
         onSortClick = onSortClick,
         onSearchClick = onSearchClick,
         onSettingsClick = onSettingsClick,
+        onPlayClick = normalPlayClick,
         normalOverflowActions = normalOverflowActions,
         additionalActions = additionalActions,
         modifier = modifier,
@@ -184,6 +186,7 @@ private fun NormalTopBar(
   onSortClick: (() -> Unit)?,
   onSearchClick: (() -> Unit)?,
   onSettingsClick: (() -> Unit)?,
+  onPlayClick: (() -> Unit)? = null,
   normalOverflowActions: List<SelectionOverflowAction>,
   additionalActions: @Composable RowScope.() -> Unit,
   modifier: Modifier = Modifier,
@@ -308,6 +311,22 @@ private fun NormalTopBar(
       }
     },
     actions = {
+      if (onPlayClick != null) {
+        IconButton(
+          onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onPlayClick()
+          },
+          modifier = Modifier.padding(horizontal = 2.dp),
+        ) {
+          Icon(
+            Icons.Filled.PlayArrow,
+            contentDescription = stringResource(R.string.play_recently_played_or_first),
+            modifier = Modifier.size(24.dp),
+            tint = MaterialTheme.colorScheme.primary,
+          )
+        }
+      }
       if (onSearchClick != null) {
         IconButton(
           onClick = {

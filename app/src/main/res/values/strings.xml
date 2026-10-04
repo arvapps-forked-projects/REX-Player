@@ -701,6 +701,8 @@
     <string name="search_empty_title">Search</string>
     <string name="search_empty_message">Type to search files and folders</string>
     <string name="play_recently_played_or_first">Play recently played or first video</string>
+    <string name="pref_appearance_hide_play_fab_show_in_header_title">Show play in header</string>
+    <string name="pref_appearance_hide_play_fab_show_in_header_summary">Hide the floating play button and show a play icon in the top bar instead</string>
     <string name="toggle_menu">Toggle menu</string>
     <string name="close">Close</string>
     <string name="copy">Copy</string>
