@@ -432,7 +432,7 @@ object MainScreen : Screen {
             }
           }
         }
-    ) { paddingValues ->
+    ) { _ ->
       Box(modifier = Modifier.fillMaxSize()) {
         val fabBottomPadding = 80.dp
 
@@ -498,7 +498,7 @@ object MainScreen : Screen {
           val isShortsTabActive = isShortsEnabled && shortsIdx != -1 && selectedTab == shortsIdx
           val isNavBarVisible = !hideNavigationBar && !isShortsTabActive && visibleTabs.size > 1
           
-          val navBarHeight = if (isNavBarVisible) paddingValues.calculateBottomPadding().coerceAtLeast(80.dp) else 0.dp
+          val navBarHeight = if (isNavBarVisible) 80.dp else 0.dp
           val miniPlayerHeight = if (miniPlayerState.isPlaybackActive) MiniPlayerDefaults.CompactHeight else 0.dp
           val totalBottomPadding = navBarHeight + miniPlayerHeight
           
