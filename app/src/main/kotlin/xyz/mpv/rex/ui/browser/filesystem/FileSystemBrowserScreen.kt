@@ -143,6 +143,7 @@ import kotlinx.serialization.Serializable
 import androidx.compose.foundation.layout.fillMaxHeight
 import xyz.mpv.rex.ui.browser.components.FastScrollbar
 import org.koin.compose.koinInject
+import xyz.mpv.rex.preferences.AppearancePreferences
 
 /**
  * Root File System Browser screen - shows storage volumes
@@ -183,6 +184,8 @@ fun FileSystemBrowserScreen(path: String? = null) {
   val clipboardManager = LocalClipboardManager.current
   val browserPreferences = koinInject<BrowserPreferences>()
   val playerPreferences = koinInject<xyz.mpv.rex.preferences.PlayerPreferences>()
+  val appearancePreferences = koinInject<AppearancePreferences>()
+  val hidePlayFabShowInHeader by appearancePreferences.hidePlayFabShowInHeader.collectAsState()
   val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
   // ViewModel - use path parameter if provided, otherwise show roots
@@ -459,6 +462,19 @@ fun FileSystemBrowserScreen(path: String? = null) {
           selectedCount = selectedCount,
           totalCount = totalCount,
           isHomeScreen = isAtRoot,
+          normalPlayClick = if (isAtRoot && hidePlayFabShowInHeader) {
+            {
+              coroutineScope.launch {
+                val recentlyPlayedVideos = xyz.mpv.rex.utils.history.RecentlyPlayedOps.getRecentlyPlayed(limit = 1)
+                val lastPlayed = recentlyPlayedVideos.firstOrNull()
+                if (lastPlayed != null) {
+                  MediaUtils.playFile(lastPlayed.filePath, context, "recently_played_button")
+                } else {
+                  Toast.makeText(context, context.getString(R.string.no_recently_played_videos), Toast.LENGTH_SHORT).show()
+                }
+              }
+            }
+          } else null,
           onBackClick = if (isAtRoot) {
             null
           } else {
@@ -678,7 +694,7 @@ fun FileSystemBrowserScreen(path: String? = null) {
           )
         },
       floatingActionButton = {
-        if (isAtRoot) {
+        if (isAtRoot && !hidePlayFabShowInHeader) {
           FloatingActionButtonMenu(
             modifier = Modifier.padding(bottom = navigationBarHeight + 8.dp),
             expanded = isFabExpanded.value,

@@ -100,6 +100,7 @@ import xyz.mpv.rex.utils.sort.SortUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import xyz.mpv.rex.preferences.AppearancePreferences
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +110,8 @@ fun MediaLibraryContent() {
   val backstack = LocalBackStack.current
   val browserPreferences = koinInject<BrowserPreferences>()
   val playerPreferences = koinInject<PlayerPreferences>()
+  val appearancePreferences = koinInject<AppearancePreferences>()
+  val hidePlayFabShowInHeader by appearancePreferences.hidePlayFabShowInHeader.collectAsState()
   val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
   val navigationBarHeight = xyz.mpv.rex.ui.browser.LocalNavigationBarHeight.current
 
@@ -264,6 +267,19 @@ fun MediaLibraryContent() {
           totalCount = sortedVideosWithInfo.size,
           onBackClick = null, // Unified header: no back button at root
           isHomeScreen = true,
+          normalPlayClick = if (hidePlayFabShowInHeader && sortedVideosWithInfo.isNotEmpty()) {
+            {
+              coroutineScope.launch {
+                val recentlyPlayedVideos = RecentlyPlayedOps.getRecentlyPlayed(limit = 1)
+                val lastPlayed = recentlyPlayedVideos.firstOrNull()
+                if (lastPlayed != null && sortedVideosWithInfo.any { it.video.path == lastPlayed.filePath }) {
+                  MediaUtils.playFile(lastPlayed.filePath, context, "media_library_list")
+                } else {
+                  MediaUtils.playFile(sortedVideosWithInfo.first().video, context, "media_library_list")
+                }
+              }
+            }
+          } else null,
           onCancelSelection = { selectionManager.clear() },
           onSortClick = { sortDialogOpen.value = true },
           onSearchClick = { backstack.add(xyz.mpv.rex.ui.browser.search.SearchScreen()) },
@@ -328,7 +344,7 @@ fun MediaLibraryContent() {
       }
     },
     floatingActionButton = {
-      if (!selectionManager.isInSelectionMode && isFabVisible.value && sortedVideosWithInfo.isNotEmpty()) {
+      if (!hidePlayFabShowInHeader && !selectionManager.isInSelectionMode && isFabVisible.value && sortedVideosWithInfo.isNotEmpty()) {
         FloatingActionButtonMenu(
           modifier = Modifier.padding(bottom = navigationBarHeight + 8.dp),
           expanded = isFabExpanded.value,
