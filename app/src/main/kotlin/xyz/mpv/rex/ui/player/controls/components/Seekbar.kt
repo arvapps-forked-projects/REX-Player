@@ -215,14 +215,10 @@ fun SeekbarWithTimers(
     modifier.height(48.dp)
   }
 
-  val maxDuration = duration.coerceAtLeast(0f)
-  val timerWidth = remember(maxDuration, isGlassActive) {
-    when {
-      maxDuration >= 36000f -> if (isGlassActive) 72.dp else 84.dp
-      maxDuration >= 3600f -> if (isGlassActive) 64.dp else 76.dp
-      else -> if (isGlassActive) 52.dp else 60.dp
-    }
-  }
+  // Restore pre-9f86fcf0 spacing: fixed 92.dp reserves even whitespace
+  // around the centered timestamp text; glass uses intrinsic width.
+  val timerWidthModifier =
+    if (isGlassActive) Modifier.wrapContentWidth() else Modifier.width(92.dp)
 
   Row(
     modifier = rowModifier,
@@ -236,7 +232,7 @@ fun SeekbarWithTimers(
         clickEvent()
         positionTimerOnClick()
       },
-      modifier = Modifier.width(timerWidth),
+      modifier = timerWidthModifier,
     )
 
     // Seekbar
@@ -346,7 +342,7 @@ fun SeekbarWithTimers(
         clickEvent()
         durationTimerOnCLick()
       },
-      modifier = Modifier.width(timerWidth),
+      modifier = timerWidthModifier,
     )
   }
 }
