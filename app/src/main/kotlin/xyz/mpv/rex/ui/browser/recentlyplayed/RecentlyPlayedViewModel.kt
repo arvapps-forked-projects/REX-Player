@@ -195,8 +195,13 @@ class RecentlyPlayedViewModel(application: Application) :
     val bucketId = file.parent ?: ""
     val bucketDisplayName = File(bucketId).name
 
-    // Force isAudio based on extension even if database says otherwise
-    val isAudio = entity.isAudio || xyz.mpv.rex.utils.storage.FileTypeUtils.isAudioFile(file)
+    // Reliable isAudio check: video extensions and video dimensions are never audio
+    val isAudio = when {
+      xyz.mpv.rex.utils.storage.FileTypeUtils.isAudioFile(file) -> true
+      xyz.mpv.rex.utils.storage.FileTypeUtils.isVideoFile(file) -> false
+      entity.width > 0 && entity.height > 0 -> false
+      else -> entity.isAudio
+    }
 
     return Video(
       id = filePath.hashCode().toLong(),

@@ -73,8 +73,13 @@ class HistoryManager(
                 val (width, height) = getMPVResolution()
                 val (artist, album) = getMPVMetadata()
                 
-                // Use extension first, then height
-                val isAudio = xyz.mpv.rex.utils.storage.FileTypeUtils.isAudioFile(File(filePath)) || (height <= 0)
+                val file = File(filePath)
+                val isAudio = when {
+                    xyz.mpv.rex.utils.storage.FileTypeUtils.isAudioFile(file) -> true
+                    xyz.mpv.rex.utils.storage.FileTypeUtils.isVideoFile(file) -> false
+                    width > 0 && height > 0 -> false
+                    else -> false
+                }
 
                 addRecentlyPlayed(
                     filePath = filePath,

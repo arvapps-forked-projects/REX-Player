@@ -2698,8 +2698,13 @@ class PlayerActivity :
     val path = parsePathFromIntent(intent)
     if (path != null) {
       val file = File(path)
-      if (file.exists() && xyz.mpv.rex.utils.storage.FileTypeUtils.isAudioFile(file)) {
-        return true
+      if (file.exists()) {
+        if (xyz.mpv.rex.utils.storage.FileTypeUtils.isAudioFile(file)) {
+          return true
+        }
+        if (xyz.mpv.rex.utils.storage.FileTypeUtils.isVideoFile(file)) {
+          return false
+        }
       }
     }
     return !hasVideoTrack()
